@@ -1,0 +1,19 @@
+# Gradle
+.gradle/
+build/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+out/
+
+# Minecraft development
+run/
+
+# JVM dumps
+*.hprof
+hs_err_pid*
+
+# Operating system
+.DS_Store
+Thumbs.db
