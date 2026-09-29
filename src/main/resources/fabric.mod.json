@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "id": "ygmemepad",
+  "version": "${version}",
+  "name": "YGMemePad",
+  "description": "Саундпад для сервера YGM13",
+  "authors": [
+    "deceased16"
+  ],
+  "contact": {},
+  "license": "All Rights Reserved",
+  "icon": "assets/ygmemepad/lang/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "ru.deceased16.ygmemepad.YGMemePadClient"
+    ],
+    "modmenu": [
+      "ru.deceased16.ygmemepad.YGMemePadModMenu"
+    ]
+  },
+  "mixins": [],
+  "depends": {
+    "fabricloader": ">=0.18.0",
+    "fabric-api": "*",
+    "minecraft": "1.21.11",
+    "java": ">=21"
+  },
+  "suggests": {
+    "modmenu": "*"
+  }
+}

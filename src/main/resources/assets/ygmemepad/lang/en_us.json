@@ -1,0 +1,12 @@
+{
+  "ygmemepad.screen.title": "YG MemePad",
+  "ygmemepad.screen.slot": "Slot %s",
+  "ygmemepad.screen.not_set": "Not set",
+  "ygmemepad.screen.assign": "Assign",
+  "ygmemepad.screen.clear": "Clear",
+  "ygmemepad.screen.press_key": "Press a key...",
+  "ygmemepad.screen.open_menu_key": "Open menu key: %s",
+  "ygmemepad.screen.refresh": "Refresh sound list",
+  "ygmemepad.screen.no_sounds": "No sounds received from the server yet. Join a server with YG-Utils and press Refresh.",
+  "ygmemepad.picker.title": "Choose a sound"
+}
