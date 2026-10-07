@@ -5,6 +5,7 @@ import org.lwjgl.glfw.GLFW;
 import ru.deceased16.ygmemepad.YGMemePadClient;
 import ru.deceased16.ygmemepad.config.MemePadConfig;
 import ru.deceased16.ygmemepad.gui.MemePadScreen;
+import ru.deceased16.ygmemepad.network.MemePadActions;
 import ru.deceased16.ygmemepad.network.MemeSoundListData;
 
 import java.util.HashMap;
@@ -32,7 +33,9 @@ public final class MemePadInput {
         long window = client.getWindow().getHandle();
         MemePadConfig config = MemePadConfig.get();
 
-        checkKey(window, config.getOpenMenuKey(), () -> client.setScreen(new MemePadScreen(null)));
+        while (MemePadKeys.OPEN_MENU.wasPressed()) {
+            client.setScreen(new MemePadScreen(null));
+        }
 
         for (Map.Entry<String, Integer> entry : config.getBindingsSnapshot().entrySet()) {
             String soundName = entry.getKey();
@@ -75,6 +78,6 @@ public final class MemePadInput {
         }
 
         lastTriggeredAtMillis.put(soundName, now);
-        client.player.networkHandler.sendChatCommand("memplay \"" + soundName + "\"");
+        MemePadActions.play(client, soundName);
     }
 }

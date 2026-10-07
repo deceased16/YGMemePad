@@ -12,6 +12,8 @@ base {
 
 repositories {
     maven { url = "https://maven.terraformersmc.com/releases/" } // Mod Menu
+    maven { url = "https://maven.wispforest.io/releases/" } // owo-lib
+    maven { url = "https://jitpack.io" } // owo-lib 0.13.0+ (kdl4j)
 }
 
 dependencies {
@@ -20,8 +22,8 @@ dependencies {
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
-
     modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+    modImplementation "io.wispforest:owo-lib:${project.owo_version}"
 }
 
 processResources {

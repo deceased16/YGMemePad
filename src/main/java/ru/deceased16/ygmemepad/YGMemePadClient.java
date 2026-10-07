@@ -5,10 +5,17 @@ import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.minecraft.client.MinecraftClient;
+import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
 import ru.deceased16.ygmemepad.input.MemePadInput;
+import ru.deceased16.ygmemepad.input.MemePadKeys;
+import ru.deceased16.ygmemepad.network.ActionResult;
+import ru.deceased16.ygmemepad.network.MemePadActions;
 import ru.deceased16.ygmemepad.network.MemeSoundListData;
 import ru.deceased16.ygmemepad.network.MemeSoundListDecoder;
 import ru.deceased16.ygmemepad.network.RawPayload;
+import ru.deceased16.ygmemepad.network.ServerMessage;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -19,11 +26,15 @@ public class YGMemePadClient implements ClientModInitializer {
     private static final Logger LOGGER = Logger.getLogger("YGMemePad");
 
     private static volatile MemeSoundListData lastSoundData = MemeSoundListData.EMPTY;
+    private static volatile ActionResult lastResult = null;
 
     private static final AtomicInteger dataVersion = new AtomicInteger(0);
+    private static final AtomicInteger resultVersion = new AtomicInteger(0);
 
     @Override
     public void onInitializeClient() {
+        MemePadKeys.register();
+
         PayloadTypeRegistry.playS2C().register(RawPayload.ID, RawPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(RawPayload.ID, RawPayload.CODEC);
 
@@ -34,6 +45,7 @@ public class YGMemePadClient implements ClientModInitializer {
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             lastSoundData = MemeSoundListData.EMPTY;
+            lastResult = null;
             dataVersion.incrementAndGet();
         });
 
@@ -42,17 +54,31 @@ public class YGMemePadClient implements ClientModInitializer {
 
     private static void handleIncoming(byte[] data) {
         try {
-            lastSoundData = MemeSoundListDecoder.decode(data);
-            dataVersion.incrementAndGet();
+            ServerMessage message = MemeSoundListDecoder.decode(data);
+            if (message instanceof MemeSoundListData list) {
+                lastSoundData = list;
+                dataVersion.incrementAndGet();
+            } else if (message instanceof ActionResult result) {
+                lastResult = result;
+                resultVersion.incrementAndGet();
+                showOverlay(result);
+            }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Не удалось разобрать список звуков от сервера", e);
+            LOGGER.log(Level.WARNING, "Не удалось разобрать сообщение от сервера", e);
+        }
+    }
+
+    private static void showOverlay(ActionResult result) {
+        MinecraftClient client = MinecraftClient.getInstance();
+        if (client.inGameHud != null) {
+            client.inGameHud.setOverlayMessage(
+                    Text.literal(result.message()).formatted(result.success() ? Formatting.GREEN : Formatting.RED),
+                    false);
         }
     }
 
     public static void requestSoundListRefresh() {
-        if (ClientPlayNetworking.canSend(RawPayload.ID)) {
-            ClientPlayNetworking.send(new RawPayload(new byte[0]));
-        }
+        MemePadActions.requestSoundList();
     }
 
     public static MemeSoundListData getLastSoundData() {
@@ -61,5 +87,13 @@ public class YGMemePadClient implements ClientModInitializer {
 
     public static int getDataVersion() {
         return dataVersion.get();
+    }
+
+    public static ActionResult getLastResult() {
+        return lastResult;
+    }
+
+    public static int getResultVersion() {
+        return resultVersion.get();
     }
 }

@@ -7,10 +7,14 @@
   "authors": [
     "deceased16"
   ],
-  "contact": {},
+  "contact": {
+    "sources": "https://github.com/deceased16/YGMemePad",
+    "homepage": "https://t.me/deceased16",
+    "issues": "https://github.com/deceased16/yg-utils/issues"
+  },
   "license": "All Rights Reserved",
-  "icon": "assets/ygmemepad/lang/icon.png",
-  "environment": "client",
+  "icon": "icon.png",
+  "environment": "*",
   "entrypoints": {
     "client": [
       "ru.deceased16.ygmemepad.YGMemePadClient"
@@ -20,9 +24,20 @@
     ]
   },
   "mixins": [],
+  "custom": {
+    "mcb": [
+      {
+        "name": "YGM13",
+        "fillColor": -8257408,
+        "outlineColor": -43854
+      }
+    ]
+  },
+  "mixins": [],
   "depends": {
     "fabricloader": ">=0.18.0",
     "fabric-api": "*",
+    "owo": ">=0.13.0",
     "minecraft": "1.21.11",
     "java": ">=21"
   },
