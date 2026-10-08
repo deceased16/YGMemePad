@@ -20,6 +20,6 @@ The mod runs on **Minecraft 1.21.11** with **Fabric**. Required libraries:
 
 ## If something doesn't work
 
-- The mod asks the server for the list of sounds, so **it only works on a server with the YGM13 plugin**.
+- The mod asks the server for the list of sounds, so **it only works on a server with the yg-utils plugin**.
 - No sounds or an empty list: click "Refresh" at the bottom of the menu.
 - The game won't start and complains about `owo`: install the right version of owo-lib (see above).
