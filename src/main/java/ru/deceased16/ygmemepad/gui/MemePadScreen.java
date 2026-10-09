@@ -22,6 +22,7 @@ import net.minecraft.client.input.KeyInput;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import ru.deceased16.ygmemepad.YGMemePadClient;
 import ru.deceased16.ygmemepad.config.MemePadConfig;
@@ -29,6 +30,7 @@ import ru.deceased16.ygmemepad.network.ActionResult;
 import ru.deceased16.ygmemepad.network.MemePadActions;
 import ru.deceased16.ygmemepad.network.MemeSoundEntry;
 import ru.deceased16.ygmemepad.network.MemeSoundListData;
+import ru.deceased16.ygmemepad.update.UpdateManager;
 
 import java.util.List;
 import java.util.function.Consumer;
@@ -60,9 +62,12 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
     private boolean dirtyTabs = true;
     private boolean dirtyTiles = true;
     private boolean dirtyAdmin = true;
+    private boolean dirtyUpdate = true;
+    private int lastSeenUpdateCounter = -1;
     private FlowLayout tabsFlow;
     private FlowLayout tilesFlow;
     private FlowLayout adminRow;
+    private FlowLayout updateRow;
     private TextBoxComponent searchBox;
     private LabelComponent statusLabel;
     private LabelComponent cooldownLabel;
@@ -83,7 +88,7 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
     }
 
     @Override
-    protected OwoUIAdapter<FlowLayout> createAdapter() {
+    protected @NotNull OwoUIAdapter<FlowLayout> createAdapter() {
         return OwoUIAdapter.create(this, UIContainers::verticalFlow);
     }
 
@@ -148,6 +153,11 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
         statusRow.child(cooldownLabel);
         footer.child(statusRow);
 
+        updateRow = UIContainers.horizontalFlow(Sizing.fill(), Sizing.content());
+        updateRow.gap(6);
+        updateRow.verticalAlignment(VerticalAlignment.CENTER);
+        footer.child(updateRow);
+
         adminRow = UIContainers.horizontalFlow(Sizing.fill(), Sizing.content());
         adminRow.gap(4);
         footer.child(adminRow);
@@ -200,7 +210,46 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
             dirtyAdmin = false;
             rebuildAdminRow(data);
         }
+        if (UpdateManager.getChangeCounter() != lastSeenUpdateCounter) {
+            lastSeenUpdateCounter = UpdateManager.getChangeCounter();
+            dirtyUpdate = true;
+        }
+        if (dirtyUpdate) {
+            dirtyUpdate = false;
+            rebuildUpdateRow();
+        }
         updateStatus();
+    }
+
+    private void rebuildUpdateRow() {
+        updateRow.clearChildren();
+        UpdateManager.State updateState = UpdateManager.getState();
+
+        switch (updateState) {
+            case AVAILABLE, FAILED -> {
+                boolean failed = updateState == UpdateManager.State.FAILED;
+                LabelComponent label = UIComponents.label(failed
+                        ? Text.translatable("ygmemepad.update.failed", UpdateManager.getError())
+                        : Text.translatable("ygmemepad.update.available", UpdateManager.getLatestVersion()));
+                label.color(Color.ofArgb(failed ? 0xFFFF5555 : 0xFFFFD54F));
+                updateRow.child(label);
+                updateRow.child(button(Text.translatable(failed ? "ygmemepad.update.retry" : "ygmemepad.update.button"),
+                        90, 18, C_ACCENT, C_ACCENT_HOVER, b -> UpdateManager.install()));
+            }
+            case DOWNLOADING -> {
+                LabelComponent label = UIComponents.label(
+                        Text.translatable("ygmemepad.update.downloading", UpdateManager.getPercent() + "%"));
+                label.color(Color.ofArgb(0xFFFFD54F));
+                updateRow.child(label);
+            }
+            case READY -> {
+                LabelComponent label = UIComponents.label(Text.translatable("ygmemepad.update.ready"));
+                label.color(Color.ofArgb(0xFF55FF55));
+                updateRow.child(label);
+            }
+            default -> {
+            }
+        }
     }
 
     private void rebuildTabs(MemeSoundListData data) {

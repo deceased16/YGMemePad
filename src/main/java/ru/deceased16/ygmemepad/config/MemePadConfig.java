@@ -28,6 +28,7 @@ public final class MemePadConfig {
     private final Map<String, Integer> soundKeys = new HashMap<>();
 
     private int openMenuKey = GLFW.GLFW_KEY_APOSTROPHE;
+    private boolean checkUpdates = true;
 
     private static MemePadConfig instance;
 
@@ -60,6 +61,15 @@ public final class MemePadConfig {
         save();
     }
 
+    public boolean isCheckUpdates() {
+        return checkUpdates;
+    }
+
+    public void setCheckUpdates(boolean checkUpdates) {
+        this.checkUpdates = checkUpdates;
+        save();
+    }
+
     public int getOpenMenuKey() {
         return openMenuKey;
     }
@@ -85,6 +95,9 @@ public final class MemePadConfig {
                 if (data.openMenuKey != null) {
                     config.openMenuKey = data.openMenuKey;
                 }
+                if (data.checkUpdates != null) {
+                    config.checkUpdates = data.checkUpdates;
+                }
             }
         } catch (IOException e) {
             LOGGER.log(Level.WARNING, "Не удалось прочитать ygmemepad.json, будет создан заново", e);
@@ -97,6 +110,7 @@ public final class MemePadConfig {
         Data data = new Data();
         data.soundKeys.putAll(soundKeys);
         data.openMenuKey = openMenuKey;
+        data.checkUpdates = checkUpdates;
 
         try {
             Files.createDirectories(FILE.getParent());
@@ -111,5 +125,6 @@ public final class MemePadConfig {
     private static final class Data {
         Map<String, Integer> soundKeys = new HashMap<>();
         Integer openMenuKey;
+        Boolean checkUpdates;
     }
 }

@@ -8,6 +8,8 @@ import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.minecraft.client.gui.screen.TitleScreen;
 import ru.deceased16.ygmemepad.input.MemePadInput;
 import ru.deceased16.ygmemepad.input.MemePadKeys;
 import ru.deceased16.ygmemepad.network.ActionResult;
@@ -16,6 +18,7 @@ import ru.deceased16.ygmemepad.network.MemeSoundListData;
 import ru.deceased16.ygmemepad.network.MemeSoundListDecoder;
 import ru.deceased16.ygmemepad.network.RawPayload;
 import ru.deceased16.ygmemepad.network.ServerMessage;
+import ru.deceased16.ygmemepad.update.UpdateManager;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -34,6 +37,13 @@ public class YGMemePadClient implements ClientModInitializer {
     @Override
     public void onInitializeClient() {
         MemePadKeys.register();
+        UpdateManager.start();
+
+        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            if (screen instanceof TitleScreen) {
+                client.execute(UpdateManager::promptIfPossible);
+            }
+        });
 
         PayloadTypeRegistry.playS2C().register(RawPayload.ID, RawPayload.CODEC);
         PayloadTypeRegistry.playC2S().register(RawPayload.ID, RawPayload.CODEC);
@@ -41,7 +51,10 @@ public class YGMemePadClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(RawPayload.ID, (payload, context) ->
                 context.client().execute(() -> handleIncoming(payload.data())));
 
-        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> requestSoundListRefresh());
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            requestSoundListRefresh();
+            UpdateManager.notifyIfPossible();
+        });
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
             lastSoundData = MemeSoundListData.EMPTY;
