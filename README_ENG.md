@@ -18,6 +18,10 @@ The mod runs on **Minecraft 1.21.11** with **Fabric**. Required libraries:
 3. **Click a sound's name** to play it.
 4. Under each name there is an **"Assign"** button: click it, then press the key you want. From now on that sound plays on that key while the menu is closed. The cross next to it clears the key.
 
+## Settings
+
+The menu has a "Settings" button: sound layout, columns, button colors, binds export and import, and a reset for all binds. There is also a sort button next to the search field.
+
 ## If something doesn't work
 
 - The mod asks the server for the list of sounds, so **it only works on a server with the yg-utils plugin**.

@@ -1,5 +1,6 @@
 package ru.deceased16.ygmemepad.gui;
 
+import ru.deceased16.ygmemepad.config.MemePadConfig;
 import ru.deceased16.ygmemepad.network.MemeSoundEntry;
 import ru.deceased16.ygmemepad.network.MemeSoundListData;
 
@@ -60,8 +61,25 @@ public final class MemePadModel {
             }
             result.add(sound);
         }
-        result.sort((a, b) -> a.name().compareToIgnoreCase(b.name()));
+        sort(result, MemePadConfig.get());
         return result;
+    }
+
+    private static void sort(List<MemeSoundEntry> sounds, MemePadConfig config) {
+        java.util.Comparator<MemeSoundEntry> byName = (a, b) -> a.name().compareToIgnoreCase(b.name());
+
+        switch (config.getSortMode()) {
+            case NAME_ASC -> sounds.sort(byName);
+            case NAME_DESC -> sounds.sort(byName.reversed());
+            case MOST_USED -> sounds.sort(java.util.Comparator
+                    .comparingInt((MemeSoundEntry s) -> config.getUseCount(s.name())).reversed()
+                    .thenComparing(byName));
+            case RECENT -> sounds.sort(java.util.Comparator
+                    .comparingLong((MemeSoundEntry s) -> config.getLastUsed(s.name())).reversed()
+                    .thenComparing(byName));
+            case SERVER -> {
+            }
+        }
     }
 
     public static String validTab(MemeSoundListData data, String tabId) {

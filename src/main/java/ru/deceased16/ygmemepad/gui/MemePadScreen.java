@@ -26,6 +26,8 @@ import org.jetbrains.annotations.NotNull;
 import org.lwjgl.glfw.GLFW;
 import ru.deceased16.ygmemepad.YGMemePadClient;
 import ru.deceased16.ygmemepad.config.MemePadConfig;
+import ru.deceased16.ygmemepad.config.MemePadTheme;
+import ru.deceased16.ygmemepad.input.KeyConflicts;
 import ru.deceased16.ygmemepad.network.ActionResult;
 import ru.deceased16.ygmemepad.network.MemePadActions;
 import ru.deceased16.ygmemepad.network.MemeSoundEntry;
@@ -33,29 +35,29 @@ import ru.deceased16.ygmemepad.network.MemeSoundListData;
 import ru.deceased16.ygmemepad.update.UpdateManager;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Consumer;
 
 public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
 
     private static final int SIDEBAR_W = 130;
-    private static final int TILE_W = 112;
+    private static final int TILE_GAP = 6;
+    private static final int TILE_MIN_W = 80;
     private static final long RESULT_SHOW_MS = 6000;
-    private static final int C_NORMAL = 0xB0202630;
-    private static final int C_NORMAL_HOVER = 0xC03A4658;
     private static final int C_OFF = 0x60101418;
-    private static final int C_KEY = 0xB0141A2A;
-    private static final int C_KEY_HOVER = 0xC0283A58;
     private static final int TILE_PAD = 3;
-    private static final int C_ACCENT = 0xD03A78C2;
-    private static final int C_ACCENT_HOVER = 0xE04A8AD6;
+    private static final int LIST_KEY_W = 110;
+    private static final int LIST_CLEAR_W = 20;
     private static final int C_DANGER = 0xD0A83232;
     private static final int C_DANGER_HOVER = 0xE0C43E3E;
     private final Screen parent;
+    private final boolean listMode = MemePadConfig.get().getLayout() == MemePadConfig.Layout.LIST;
     private String selectedTab;
     private String query;
     private boolean deleteMode = false;
     private String awaitingKeyFor = null;
     private int lastSeenDataVersion = -1;
+    private int lastBuiltWidth = -1;
     private int lastSeenResultVersion = 0;
     private long resultShownAt = 0;
     private String shownStatus = "";
@@ -69,6 +71,7 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
     private FlowLayout adminRow;
     private FlowLayout updateRow;
     private TextBoxComponent searchBox;
+    private ButtonComponent sortButton;
     private LabelComponent statusLabel;
     private LabelComponent cooldownLabel;
 
@@ -117,6 +120,15 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
             dirtyTiles = true;
         });
         header.child(searchBox);
+
+        sortButton = button(sortText(MemePadConfig.get().getSortMode()), sortButtonWidth(), 20,
+                cNormal(), cNormalHover(), b -> {
+                    MemePadConfig.SortMode next = MemePadConfig.get().getSortMode().next();
+                    MemePadConfig.get().setSortMode(next);
+                    sortButton.setMessage(sortText(next));
+                    dirtyTiles = true;
+                });
+        header.child(sortButton);
         root.child(header);
 
         FlowLayout body = UIContainers.horizontalFlow(Sizing.fill(), Sizing.expand());
@@ -130,8 +142,10 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
         sidebar.scrollbar(ScrollContainer.Scrollbar.flat(Color.WHITE));
         body.child(sidebar);
 
-        tilesFlow = UIContainers.ltrTextFlow(Sizing.fill(), Sizing.content());
-        tilesFlow.gap(6);
+        tilesFlow = listMode
+                ? UIContainers.verticalFlow(Sizing.fill(), Sizing.content())
+                : UIContainers.ltrTextFlow(Sizing.fill(), Sizing.content());
+        tilesFlow.gap(listMode ? 3 : TILE_GAP);
         tilesFlow.padding(Insets.of(6));
         ScrollContainer<FlowLayout> main = UIContainers.verticalScroll(Sizing.expand(), Sizing.fill(), tilesFlow);
         main.surface(Surface.flat(0x70000000));
@@ -158,19 +172,50 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
         updateRow.verticalAlignment(VerticalAlignment.CENTER);
         footer.child(updateRow);
 
-        adminRow = UIContainers.horizontalFlow(Sizing.fill(), Sizing.content());
-        adminRow.gap(4);
-        footer.child(adminRow);
-
         FlowLayout buttons = UIContainers.horizontalFlow(Sizing.fill(), Sizing.content());
         buttons.gap(4);
-        buttons.horizontalAlignment(HorizontalAlignment.RIGHT);
-        buttons.child(button(Text.translatable("ygmemepad.screen.refresh_short"), 90, 20, C_NORMAL, C_NORMAL_HOVER,
+        buttons.verticalAlignment(VerticalAlignment.CENTER);
+        adminRow = UIContainers.horizontalFlow(Sizing.expand(), Sizing.content());
+        adminRow.gap(3);
+        adminRow.verticalAlignment(VerticalAlignment.CENTER);
+        buttons.child(adminRow);
+
+        buttons.child(button(Text.translatable("ygmemepad.screen.settings"), 90, 20, cNormal(), cNormalHover(),
+                b -> openScreen(new MemePadSettingsScreen(this::reopen))));
+        buttons.child(button(Text.translatable("ygmemepad.screen.refresh_short"), 90, 20, cNormal(), cNormalHover(),
                 b -> YGMemePadClient.requestSoundListRefresh()));
-        buttons.child(button(Text.translatable("gui.done"), 80, 20, C_NORMAL, C_NORMAL_HOVER, b -> close()));
+        buttons.child(button(Text.translatable("gui.done"), 80, 20, cNormal(), cNormalHover(), b -> close()));
         footer.child(buttons);
 
         root.child(footer);
+    }
+
+    private static int cNormal() {
+        return MemePadConfig.get().getColorArgb(MemePadTheme.Slot.BUTTON);
+    }
+
+    private static int cNormalHover() {
+        return MemePadConfig.get().getColorHoverArgb(MemePadTheme.Slot.BUTTON);
+    }
+
+    private static int cKey() {
+        return MemePadConfig.get().getColorArgb(MemePadTheme.Slot.KEY);
+    }
+
+    private static int cKeyHover() {
+        return MemePadConfig.get().getColorHoverArgb(MemePadTheme.Slot.KEY);
+    }
+
+    private static int cAccent() {
+        return MemePadConfig.get().getColorArgb(MemePadTheme.Slot.ACCENT);
+    }
+
+    private static int cAccentHover() {
+        return MemePadConfig.get().getColorHoverArgb(MemePadTheme.Slot.ACCENT);
+    }
+
+    private ButtonComponent compactButton(Text text, int color, int hover, Consumer<ButtonComponent> onPress) {
+        return button(text, this.textRenderer.getWidth(text) + 14, 16, color, hover, onPress);
     }
 
     private static ButtonComponent button(Text text, int width, int height, int color, int hover,
@@ -181,8 +226,37 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
         return button;
     }
 
+    private static Text sortText(MemePadConfig.SortMode mode) {
+        return Text.translatable("ygmemepad.settings.sort",
+                Text.translatable("ygmemepad.sort." + mode.name().toLowerCase(Locale.ROOT)));
+    }
+
+    private int sortButtonWidth() {
+        int widest = 0;
+        for (MemePadConfig.SortMode mode : MemePadConfig.SortMode.values()) {
+            widest = Math.max(widest, this.textRenderer.getWidth(sortText(mode)));
+        }
+        return widest + 16;
+    }
+
+    private int tileWidth() {
+        MemePadConfig config = MemePadConfig.get();
+        int columns = config.getColumns();
+        if (columns <= 0) {
+            return config.getTileWidth();
+        }
+        int available = this.width - 2 * 8 - SIDEBAR_W - 6 - 2 * 6 - 6 - 4;
+        int width = (available - (columns - 1) * TILE_GAP) / columns;
+        return Math.max(TILE_MIN_W, width);
+    }
+
     private void applyPending() {
         MemeSoundListData data = YGMemePadClient.getLastSoundData();
+
+        if (this.width != lastBuiltWidth) {
+            lastBuiltWidth = this.width;
+            dirtyTiles = true;
+        }
 
         if (YGMemePadClient.getDataVersion() != lastSeenDataVersion) {
             lastSeenDataVersion = YGMemePadClient.getDataVersion();
@@ -234,7 +308,7 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
                 label.color(Color.ofArgb(failed ? 0xFFFF5555 : 0xFFFFD54F));
                 updateRow.child(label);
                 updateRow.child(button(Text.translatable(failed ? "ygmemepad.update.retry" : "ygmemepad.update.button"),
-                        90, 18, C_ACCENT, C_ACCENT_HOVER, b -> UpdateManager.install()));
+                        90, 18, cAccent(), cAccentHover(), b -> UpdateManager.install()));
             }
             case DOWNLOADING -> {
                 LabelComponent label = UIComponents.label(
@@ -268,8 +342,8 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
             boolean selected = tab.id().equals(selectedTab);
             ButtonComponent button = button(Text.literal(fit(name + " (" + tab.count() + ")", SIDEBAR_W - 8 - 14)),
                     SIDEBAR_W - 8 - 8, 20,
-                    selected ? C_ACCENT : C_NORMAL,
-                    selected ? C_ACCENT_HOVER : C_NORMAL_HOVER,
+                    selected ? cAccent() : cNormal(),
+                    selected ? cAccentHover() : cNormalHover(),
                     b -> selectTab(tab.id()));
             button.sizing(Sizing.fill(), Sizing.fixed(20));
             tabsFlow.child(button);
@@ -307,53 +381,96 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
     }
 
     private FlowLayout createTile(MemeSoundEntry sound, boolean admin) {
-        String name = sound.name();
-        int inner = TILE_W - 2 * TILE_PAD;
+        return listMode ? createRow(sound, admin) : createTileCard(sound, admin);
+    }
 
-        FlowLayout tile = UIContainers.verticalFlow(Sizing.fixed(TILE_W), Sizing.content());
-        tile.gap(3);
-        tile.padding(Insets.of(TILE_PAD));
-        tile.margins(Insets.bottom(6));
-        tile.surface(Surface.flat(0x60000000).and(Surface.outline(0x28FFFFFF)));
+    private FlowLayout createRow(MemeSoundEntry sound, boolean admin) {
+        String name = sound.name();
+
+        FlowLayout row = UIContainers.horizontalFlow(Sizing.fill(), Sizing.content());
+        row.gap(4);
+        row.padding(Insets.of(TILE_PAD));
+        row.verticalAlignment(VerticalAlignment.CENTER);
+        row.surface(Surface.flat(0x60000000).and(Surface.outline(0x28FFFFFF)));
 
         boolean deleting = deleteMode && admin;
-        ButtonComponent nameButton = button(Text.literal(fit(name, inner - 8)), inner, 20,
-                deleting ? C_DANGER : C_NORMAL,
-                deleting ? C_DANGER_HOVER : C_NORMAL_HOVER,
+        int nameMaxPx = Math.max(80, this.width - 2 * 8 - SIDEBAR_W - 6 - 12 - 8 - 2 * TILE_PAD
+                - 2 * 4 - LIST_KEY_W - LIST_CLEAR_W - 16);
+        ButtonComponent nameButton = button(Text.literal(fit(name, nameMaxPx)), 100, 20,
+                deleting ? C_DANGER : cNormal(),
+                deleting ? C_DANGER_HOVER : cNormalHover(),
                 b -> onTileClick(name));
+        nameButton.horizontalSizing(Sizing.expand());
         nameButton.tooltip(Text.literal(name));
-        tile.child(nameButton);
+        row.child(nameButton);
 
+        addKeyControls(row, name, LIST_KEY_W, 20, LIST_CLEAR_W, 20);
+        return row;
+    }
+
+    private void addKeyControls(FlowLayout target, String name, int keyWidth, int keyHeight,
+                                int clearWidth, int clearHeight) {
         boolean recording = name.equals(awaitingKeyFor);
         Integer boundKey = MemePadConfig.get().getKeyForSound(name);
 
+        List<String> conflicts = boundKey == null
+                ? List.of() : KeyConflicts.find(this.client, name, boundKey);
+        boolean conflict = !recording && !conflicts.isEmpty();
+
         Text keyText;
         if (recording) {
-            keyText = Text.translatable("ygmemepad.screen.press_key").formatted(Formatting.YELLOW);
+            keyText = Text.literal(fit(Text.translatable("ygmemepad.screen.press_key").getString(), keyWidth - 8))
+                    .formatted(Formatting.YELLOW);
         } else if (boundKey != null) {
-            keyText = Text.literal(keyLabel(boundKey)).formatted(Formatting.AQUA);
+            keyText = Text.literal(fit(keyLabel(boundKey), keyWidth - 8))
+                    .formatted(conflict ? Formatting.WHITE : Formatting.AQUA);
         } else {
-            keyText = Text.translatable("ygmemepad.screen.assign").formatted(Formatting.GRAY);
+            keyText = Text.literal(fit(Text.translatable("ygmemepad.screen.assign").getString(), keyWidth - 8))
+                    .formatted(Formatting.GRAY);
         }
 
-        FlowLayout row = UIContainers.horizontalFlow(Sizing.fixed(inner), Sizing.content());
-        row.gap(2);
-
-        ButtonComponent keyButton = button(keyText, inner - 22, 16,
-                recording ? C_ACCENT : C_KEY,
-                recording ? C_ACCENT_HOVER : C_KEY_HOVER,
+        ButtonComponent keyButton = button(keyText, keyWidth, keyHeight,
+                recording ? cAccent() : conflict ? C_DANGER : cKey(),
+                recording ? cAccentHover() : conflict ? C_DANGER_HOVER : cKeyHover(),
                 b -> {
                     awaitingKeyFor = name;
                     dirtyTiles = true;
                 });
-        row.child(keyButton);
+        if (conflict) {
+            keyButton.tooltip(Text.translatable("ygmemepad.conflict.tooltip", String.join(", ", conflicts)));
+        }
+        target.child(keyButton);
 
-        ButtonComponent clearButton = button(Text.literal("×"), 20, 16, C_KEY, C_KEY_HOVER, b -> {
+        ButtonComponent clearButton = button(Text.literal("×"), clearWidth, clearHeight, cKey(), cKeyHover(), b -> {
             MemePadConfig.get().clearKeyForSound(name);
             dirtyTiles = true;
         });
         clearButton.active(boundKey != null);
-        row.child(clearButton);
+        target.child(clearButton);
+    }
+
+    private FlowLayout createTileCard(MemeSoundEntry sound, boolean admin) {
+        String name = sound.name();
+        int tileW = tileWidth();
+        int inner = tileW - 2 * TILE_PAD;
+
+        FlowLayout tile = UIContainers.verticalFlow(Sizing.fixed(tileW), Sizing.content());
+        tile.gap(3);
+        tile.padding(Insets.of(TILE_PAD));
+        tile.margins(Insets.bottom(TILE_GAP));
+        tile.surface(Surface.flat(0x60000000).and(Surface.outline(0x28FFFFFF)));
+
+        boolean deleting = deleteMode && admin;
+        ButtonComponent nameButton = button(Text.literal(fit(name, inner - 8)), inner, 20,
+                deleting ? C_DANGER : cNormal(),
+                deleting ? C_DANGER_HOVER : cNormalHover(),
+                b -> onTileClick(name));
+        nameButton.tooltip(Text.literal(name));
+        tile.child(nameButton);
+
+        FlowLayout row = UIContainers.horizontalFlow(Sizing.fixed(inner), Sizing.content());
+        row.gap(2);
+        addKeyControls(row, name, inner - 22, 16, 20, 16);
 
         tile.child(row);
         return tile;
@@ -365,17 +482,16 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
             return;
         }
 
-        adminRow.child(button(Text.translatable("ygmemepad.admin.add_sound"), 100, 20, C_NORMAL, C_NORMAL_HOVER,
+        adminRow.child(compactButton(Text.translatable("ygmemepad.admin.add_sound"), cNormal(), cNormalHover(),
                 b -> openScreen(new AddSoundScreen(this::reopen, currentCategoryOrNull()))));
 
-        adminRow.child(button(Text.translatable("ygmemepad.admin.add_category"), 100, 20, C_NORMAL, C_NORMAL_HOVER,
+        adminRow.child(compactButton(Text.translatable("ygmemepad.admin.add_category"), cNormal(), cNormalHover(),
                 b -> openScreen(new AddCategoryScreen(this::reopen))));
 
-        adminRow.child(button(Text.translatable(deleteMode
+        adminRow.child(compactButton(Text.translatable(deleteMode
                         ? "ygmemepad.admin.delete_mode_on" : "ygmemepad.admin.delete_mode_off"),
-                120, 20,
-                deleteMode ? C_DANGER : C_NORMAL,
-                deleteMode ? C_DANGER_HOVER : C_NORMAL_HOVER,
+                deleteMode ? C_DANGER : cNormal(),
+                deleteMode ? C_DANGER_HOVER : cNormalHover(),
                 b -> {
                     deleteMode = !deleteMode;
                     dirtyTiles = true;
@@ -383,8 +499,8 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
                 }));
 
         if (currentCategoryOrNull() != null) {
-            adminRow.child(button(Text.translatable("ygmemepad.admin.delete_category"), 130, 20,
-                    C_NORMAL, C_NORMAL_HOVER, b -> confirmRemoveCategory()));
+            adminRow.child(compactButton(Text.translatable("ygmemepad.admin.delete_category"),
+                    cNormal(), cNormalHover(), b -> confirmRemoveCategory()));
         }
     }
 
@@ -422,6 +538,10 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
                     () -> MemePadActions.removeSound(soundName));
         } else if (this.client != null && this.client.player != null) {
             MemePadActions.play(this.client, soundName);
+            MemePadConfig.SortMode mode = MemePadConfig.get().getSortMode();
+            if (mode == MemePadConfig.SortMode.MOST_USED || mode == MemePadConfig.SortMode.RECENT) {
+                dirtyTiles = true;
+            }
         }
     }
 
@@ -455,6 +575,9 @@ public class MemePadScreen extends BaseOwoScreen<FlowLayout> {
     private static String keyLabel(int glfwKeyCode) {
         if (glfwKeyCode < 0) {
             return Text.translatable("ygmemepad.screen.not_set").getString();
+        }
+        if (glfwKeyCode >= GLFW.GLFW_KEY_KP_0 && glfwKeyCode <= GLFW.GLFW_KEY_KP_9) {
+            return "NUM-" + (glfwKeyCode - GLFW.GLFW_KEY_KP_0);
         }
         return InputUtil.Type.KEYSYM.createFromCode(glfwKeyCode).getLocalizedText().getString();
     }

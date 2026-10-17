@@ -3,6 +3,7 @@ package ru.deceased16.ygmemepad.network;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import ru.deceased16.ygmemepad.YGMemePadClient;
+import ru.deceased16.ygmemepad.config.MemePadConfig;
 
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -38,6 +39,7 @@ public final class MemePadActions {
     }
 
     public static void play(MinecraftClient client, String soundName) {
+        MemePadConfig.get().recordUse(soundName);
         if (YGMemePadClient.getLastSoundData().supportsPackets()) {
             send(out -> {
                 out.writeByte(OP_PLAY);
