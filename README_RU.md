@@ -1,6 +1,6 @@
 # YGMemePad
 
-[🇬🇧 English version](README_ENG.md)
+[🇬🇧 English version](README.md)
 
 Мод-саундпад для сервера **YGM13**. Позволяет запускать мемные звуки с сервера по горячим клавишам или прямо из меню.
 
