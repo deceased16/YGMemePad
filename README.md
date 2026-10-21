@@ -1,6 +1,6 @@
 # YGMemePad
 
-[🇷🇺 Русская версия](README.md)
+[🇷🇺 Русская версия](README_RU.md)
 
 A soundpad mod for the **YGM13** server. It lets you play the server's meme sounds with hotkeys or straight from the menu.
 
